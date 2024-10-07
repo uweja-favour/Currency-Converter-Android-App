@@ -30,7 +30,7 @@ The Currency Converter App provides a quick and easy way to convert between diff
 
 1. Clone the repository:
    ```
-   git clone https://github.com/uweja-favour/currency-converter-app.git
+   https://github.com/uweja-favour/currency-converter-android-app
 2. Open the project in Android Studio.
 3. Sync the project to download dependencies.
 4. Build and run the app on an emulator or a physical device.
