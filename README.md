@@ -4,8 +4,8 @@ A simple and intuitive currency converter app that allows users to easily conver
 
 ## 📱 Screenshots
 
-![Screenshot 1](link_to_screenshot_1)
-![Screenshot 2](link_to_screenshot_2)
+![Screenshot 1](https://github.com/uweja-favour/Currency-Converter-Android-App/blob/main/screenshots/Currency_Converter_Dark_Mode.png)
+![Screenshot 2]([link_to_screenshot_2](https://github.com/uweja-favour/Currency-Converter-Android-App/blob/main/screenshots/Currency_Converter_Light_Mode.png))
 
 ## 📖 Overview
 
