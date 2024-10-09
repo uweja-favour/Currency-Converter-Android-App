@@ -201,4 +201,7 @@ object Constants {
     )
     const val USD = "USD"
     const val NGN = "NGN"
+    const val CURRENCY_RATES = "currency_rates"
+    const val NO_INTERNET = "No Internet"
+    const val PREFERENCES_NAME = "currency_converter_datastore"
 }

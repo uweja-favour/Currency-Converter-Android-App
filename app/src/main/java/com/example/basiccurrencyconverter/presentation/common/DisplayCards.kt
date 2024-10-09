@@ -16,9 +16,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForwardIos
+import androidx.compose.material.icons.filled.ArrowForward
+//import androidx.compose.material.icons.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.material.icons.filled.Refresh
+//import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -45,8 +47,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 fun HorizontalDisplayCard(
     modifier: Modifier = Modifier,
     isSelected: MutableStateFlow<Boolean>,
-    currencyInValue: Number,
-    currencyType: String,
+    currencyInValue: Double,
+    currencyName: String,
     locationIcon: Boolean = false,
     handleClick: () -> Unit
 ) {
@@ -80,7 +82,7 @@ fun HorizontalDisplayCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = currencyType,
+                    text = currencyName.toString(),
                     fontWeight = FontWeight.Medium,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -96,7 +98,7 @@ fun HorizontalDisplayCard(
 
                 Spacer(modifier = Modifier.width(5.dp))
                 Icon(
-                    Icons.Default.ArrowForwardIos,
+                    Icons.Default.ArrowForward,
                     contentDescription = "",
                     modifier = Modifier
                         .size(15.dp)
@@ -160,7 +162,7 @@ fun VerticalDisplayCard(
                 .fillMaxSize()
         ) {
             Icon(
-                Icons.Default.SwapVert,
+                Icons.Default.Refresh,
                 contentDescription = "",
                 modifier = Modifier
                     .align(Alignment.Center)

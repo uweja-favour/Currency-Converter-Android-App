@@ -69,33 +69,66 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+// Compose Navigation
+    implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
 
-
-    implementation ("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.2")
-    implementation("io.coil-kt:coil-compose:1.4.0")
-    implementation ("androidx.compose.material:material-icons-extended:1.6.0")
-
-    // RETROFIT
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
-    implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:0.8.0")
-
-
-    // Hilt dependencies
-    implementation("com.google.dagger:hilt-android:2.48")
-    kapt("com.google.dagger:hilt-compiler:2.48")
-
-    // Room dependencies
+    // Room Components
     implementation("androidx.room:room-runtime:2.6.1")
     kapt("androidx.room:room-compiler:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
 
+    // Retrofit
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:0.8.0")
+
+    implementation("com.google.dagger:hilt-android:2.48")
+    kapt("com.google.dagger:hilt-compiler:2.48")
+
+
+
+    // Paging
+    implementation("androidx.paging:paging-compose:3.3.2")
+
+    // Kotlinx Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.1")
+
+    // DataStore Preferences
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // Coil
+    implementation("io.coil-kt:coil-compose:1.4.0")
+
+
+    // Horizontal Pager and Indicators - Accompanist
+    implementation("com.google.accompanist:accompanist-pager:0.30.0")
+    implementation("com.google.accompanist:accompanist-pager-indicators:0.30.0")
+
+    // Swipe to Refresh
+    implementation("com.google.accompanist:accompanist-swiperefresh:0.30.0")
+
+    // System UI Controller - Accompanist
+    implementation("com.google.accompanist:accompanist-systemuicontroller:0.30.0")
+
+    // Palette API
+    implementation("androidx.palette:palette:1.0.0")
+
+    // Testing
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:rules:1.6.1")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4:1.7.2")
+    debugImplementation("androidx.compose.ui:ui-test-manifest:1.7.2")
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:2.0.20")
+
+
+//    def room_version = "2.5.0" // or whichever version you're using
+    implementation("androidx.room:room-paging:2.6.1")
 
     implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
 
-    implementation("androidx.compose.material3:material3:1.0.1") // Use the latest stable version
-    implementation("androidx.compose.material3:material3-window-size-class:1.0.1") // Optional for responsive design
+    implementation("androidx.compose.foundation:foundation:1.5.0") // Or latest version
 
 }
