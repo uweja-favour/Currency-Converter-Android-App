@@ -32,7 +32,6 @@ class DataStoreOperationsImpl(private val context: Context) : DataStoreOperation
         val jsonList = Json.encodeToString(currencyPairs)
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.CURRENCY_PAIRS] = jsonList
-            Log.d("MY LOG", "FINALLY CAUGHT THE DATA STORE ERROR, this is what was saved to the datastore $jsonList")
         }
     }
 
@@ -49,18 +48,14 @@ class DataStoreOperationsImpl(private val context: Context) : DataStoreOperation
            .map { preferences ->
                // Retrieve the JSON string and convert it back to a list of maps
                preferences[PreferencesKeys.CURRENCY_PAIRS]?.let {
-                   Log.d("MY LOG", " FINALLY CAUGHT THE DATA STORE ERROR ${Json.decodeFromString<List<Map<String, Double>>>(it)}")
                    Json.decodeFromString<List<Map<String, Double>>>(it)
                }!!
-//               Log.d("MY LOG", "FINALLY CAUGHT THE DATA STORE ERROR it was an empty list!!!")
-//               emptyList() // Return an empty list if no data is found
            }
     }
 
     override suspend fun saveFirstOpenState() {
         dataStore.edit { preferences ->
-            preferences[PreferencesKeys.FIRST_OPEN_STATE] = true
-            Log.d("MY LOG", "DATA STORE HAS BEEN CALLED, value is ${preferences[PreferencesKeys.FIRST_OPEN_STATE]}")
+            preferences[PreferencesKeys.FIRST_OPEN_STATE] = false
         }
     }
 
@@ -74,7 +69,7 @@ class DataStoreOperationsImpl(private val context: Context) : DataStoreOperation
                 }
             }
             .map {
-               it[PreferencesKeys.FIRST_OPEN_STATE] ?: false
+               it[PreferencesKeys.FIRST_OPEN_STATE] ?: true
             }.first()
     }
 

@@ -76,9 +76,7 @@ class Repository @Inject constructor(
     }
 
     suspend fun saveFirstOpenState() {
-        Log.d("MY LOG", "REPO HAS BEEN CALLED")
         dataStoreOperations.saveFirstOpenState()
-        Log.d("MY LOG", "REPO HAS BEEN CALLED 2" )
 
     }
 

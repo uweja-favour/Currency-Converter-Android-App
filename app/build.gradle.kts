@@ -24,6 +24,7 @@ android {
     }
 
     buildTypes {
+
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -70,7 +71,7 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 // Compose Navigation
-    implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
+    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
     // Room Components
     implementation("androidx.room:room-runtime:2.6.1")
@@ -88,7 +89,7 @@ dependencies {
 
 
     // Paging
-    implementation("androidx.paging:paging-compose:3.3.2")
+//    implementation("androidx.paging:paging-compose:3.3.2")
 
     // Kotlinx Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
