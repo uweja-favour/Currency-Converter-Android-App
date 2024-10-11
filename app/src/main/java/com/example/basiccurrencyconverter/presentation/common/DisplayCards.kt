@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.basiccurrencyconverter.ui.theme.OrangeColor
+import com.example.basiccurrencyconverter.ui.theme.TextColor
 import com.example.basiccurrencyconverter.ui.theme.VerticalSwapIconColor
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -47,7 +48,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 fun HorizontalDisplayCard(
     modifier: Modifier = Modifier,
     isSelected: MutableStateFlow<Boolean>,
-    currencyInValue: Double,
+    currencyInValue: String,
     currencyName: String,
     locationIcon: Boolean = false,
     handleClick: () -> Unit
@@ -115,7 +116,7 @@ fun HorizontalDisplayCard(
                         fontWeight = FontWeight.Bold,
                         fontSize = calculateFontSize(currencyInValue.toString()), // Dynamic font size
                         overflow = TextOverflow.Ellipsis,
-                        color = if (hasBeenSelected.value) OrangeColor else Color.Black,
+                        color = if (hasBeenSelected.value) OrangeColor else TextColor,
                         modifier = Modifier.weight(1f) // Allow this text to take available space
                     )
                 }

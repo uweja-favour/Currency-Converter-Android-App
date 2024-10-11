@@ -23,4 +23,3 @@ val TextColor
     @Composable
     get() = if (!isSystemInDarkTheme()) Color.DarkGray
     else Color.White
-

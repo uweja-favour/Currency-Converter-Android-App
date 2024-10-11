@@ -67,11 +67,11 @@ class Repository @Inject constructor(
         currencyRatesDao.saveCurrencyRates(currencyRates = currencyRates)
     }
 
-    suspend fun saveCurrencyPairsToAppDataStore(currencyPairs: List<Map<String, Double>>) {
+    suspend fun saveCurrencyPairsToAppDataStore(currencyPairs: List<Map<String, String>>) {
         dataStoreOperations.saveCurrencyPairs(currencyPairs)
     }
 
-    fun retrieveCurrencyPairsFromAppDataStore(): Flow<List<Map<String, Double>>> {
+    fun retrieveCurrencyPairsFromAppDataStore(): Flow<List<Map<String, String>>> {
         return dataStoreOperations.retrieveCurrencyPairs()
     }
 

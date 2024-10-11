@@ -13,8 +13,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -97,7 +100,6 @@ private fun ScreenContents(
             .fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-//        TextField(value = , onValueChange = )
 
         OutlinedTextField(
             value = searchInputText,
@@ -120,10 +122,23 @@ private fun ScreenContents(
                 focusedIndicatorColor = if (!isSystemInDarkTheme()) Color.Black else Color.White,
                 unfocusedIndicatorColor = if (!isSystemInDarkTheme()) Color.Black else Color.White,
             ),
+            trailingIcon = {
+                Icon(
+                    Icons.Default.Clear,
+                    contentDescription = "",
+                    modifier = Modifier.clickable {
+                        if (searchInputText.isBlank()) {
+                            navController.popBackStack()
+                        } else {
+                            viewModel.updateSearchInputText("")
+                        }
+                    }
+                )
+            }
+
         )
 
         if (searchInputText.isNotBlank()) {
-
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()

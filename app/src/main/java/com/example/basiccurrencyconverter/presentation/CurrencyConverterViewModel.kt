@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.basiccurrencyconverter.data.repository.Repository
 import com.example.basiccurrencyconverter.domain.model.CurrencyRates
 import com.example.basiccurrencyconverter.util.Constants.NGN
+import com.example.basiccurrencyconverter.util.Constants.REFRESH
 import com.example.basiccurrencyconverter.util.Constants.USD
 import com.example.basiccurrencyconverter.util.Constants.allCurrencies
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -29,21 +31,18 @@ class CurrencyConverterViewModel @Inject constructor(
 
     // Encapsulate state with private MutableStateFlow
     private val _rates = MutableStateFlow<CurrencyRates?>(null)
-    val rates = _rates
 
-    // BottomSheet state
-    private val _showBottomSheet = MutableStateFlow(false)
-    val showBottomSheet = _showBottomSheet
 
     // Currencies state
-    private val _baseCurrency = MutableStateFlow<Map<String, Double>?>(null)
-    val baseCurrency = _baseCurrency
+    private val _baseCurrency = MutableStateFlow<Map<String, String>?>(null)
+    val baseCurrency: StateFlow<Map<String, String>?> get() = _baseCurrency
 
-    private val _targetCurrency = MutableStateFlow<Map<String, Double>?>(null)
-    val targetCurrency = _targetCurrency
+    private val _targetCurrency = MutableStateFlow<Map<String, String>?>(null)
+    val targetCurrency: StateFlow<Map<String, String>?> get() = _targetCurrency
+
 
     private val _currencyRatesLastUpdated = MutableStateFlow("")
-    val currencyRatesLastUpdated = _currencyRatesLastUpdated
+    val currencyRatesLastUpdated: StateFlow<String> get() = _currencyRatesLastUpdated
 
     // Inputs and values
     var baseCurrencyInput = MutableStateFlow("0")
@@ -51,13 +50,13 @@ class CurrencyConverterViewModel @Inject constructor(
 
     // Track if currencies were selected
     private val _wasBaseCurrencyExpandedToChangeItsName = MutableStateFlow(false)
-    val wasBaseCurrencyExpandedToChangeItsName = _wasBaseCurrencyExpandedToChangeItsName
+    val wasBaseCurrencyExpandedToChangeItsName: StateFlow<Boolean> get() = _wasBaseCurrencyExpandedToChangeItsName
 
     private val _baseCurrencySelected = MutableStateFlow(false)
-    val baseCurrencySelected = _baseCurrencySelected
+    val baseCurrencySelected get() = _baseCurrencySelected
 
     private val _targetCurrencySelected = MutableStateFlow(false)
-    val targetCurrencySelected = _targetCurrencySelected
+    val targetCurrencySelected get() = _targetCurrencySelected
 
     // Debounce job for search input
     private var searchJob: Job? = null
@@ -65,12 +64,16 @@ class CurrencyConverterViewModel @Inject constructor(
 
     // Currency list
     private val _listBuilder = MutableStateFlow(emptyList<String>())
-    val listBuilder = _listBuilder
+    val listBuilder get() = _listBuilder
 
-    init {
-        viewModelScope.launch { // runs on the 'Main' AKA ui thread
+    private val _isUpdating = MutableStateFlow(false)
+    val isUpdating: StateFlow<Boolean> = _isUpdating
+
+
+    fun initializeDataIfNeeded() {
+        viewModelScope.launch {
             initializeData()
-            _baseCurrencySelected.value = true
+            handleBaseCurrencySelected()
         }
     }
 
@@ -114,17 +117,17 @@ class CurrencyConverterViewModel @Inject constructor(
      */
     fun updateBaseCurrencyInput(input: String) {
         baseCurrencyInput.value = input.ifBlank { "0" }
-        if (input.isNotBlank()) {
-            viewModelScope.launch {
+        instantiateBaseCurrency(
+            name = _baseCurrency.value?.keys?.first() ?: "LINE 121",
+            value =  baseCurrencyInput.value
+        )
+//        if (input.isNotBlank()) {
+            viewModelScope.launch { // Main Dispatcher
                 // update base currency with new value
-                _baseCurrency.value = mapOf(
-                    (_baseCurrency.value?.keys?.first() ?: "LINE 121")
-                    to
-                    baseCurrencyInput.value.toDouble()
-                )
+
                 performConversionForBaseCurrency()
             }
-        }
+//        }
     }
 
     /**
@@ -133,17 +136,16 @@ class CurrencyConverterViewModel @Inject constructor(
      */
     fun updateTargetCurrencyInput(input: String) {
         targetCurrencyInput.value = input.ifBlank { "0" }
-        if (input.isNotBlank()) {
+        instantiateTargetCurrency(
+            name = _targetCurrency.value?.keys?.first() ?: "LINE 134",
+            value = targetCurrencyInput.value
+        )
+//        if (input.isNotBlank()) {
             viewModelScope.launch {
                 // update target currency with new value
-                _targetCurrency.value = mapOf(
-                    (_targetCurrency.value?.keys?.first() ?: "LINE 134")
-                    to
-                    targetCurrencyInput.value.toDouble()
-                )
                 performConversionForTargetCurrency()
             }
-        }
+//        }
     }
 
 
@@ -157,9 +159,9 @@ class CurrencyConverterViewModel @Inject constructor(
             val baseValue = _baseCurrency.value?.values?.first()
 
             if (baseCurrency == USD) {
-                convertBaseToTarget(baseValue!!)
+                convertBaseToTarget(baseValue!!.toDouble())
             } else {
-                convertNonUSDToTarget(baseValue!!)
+                convertNonUSDToTarget(baseValue!!.toDouble())
             }
         }
     }
@@ -174,14 +176,18 @@ class CurrencyConverterViewModel @Inject constructor(
         val targetValue = conversionRate?.times(baseValue) ?: 0.0
         targetCurrencyInput.value = targetValue.toString()
 
+        if (targetCurrencyInput.value == "0.0") {
+            targetCurrencyInput.value = "0"
+        }
         // update _targetCurrency value
-        _targetCurrency.value = mapOf((targetCurrencyName ?: "THE ERROR HERE!") to targetCurrencyInput.value.toDouble())
+        instantiateTargetCurrency(
+            name = targetCurrencyName ?: "THE ERROR HERE!",
+            value =  targetCurrencyInput.value
+        )
         if (_targetCurrency.value?.keys?.first() != "THE ERROR HERE!") {
             withContext(Dispatchers.IO) {
-                saveCurrencyPairsToAppDataStore()
+                saveCurrencyPairsToAppDataStore() // update dataStore pair
             }
-        } else {
-            Log.d("MY LOG", "There is an error on line 172")
         }
     }
 
@@ -213,34 +219,39 @@ class CurrencyConverterViewModel @Inject constructor(
         }
     }
 
-    private suspend fun convertTargetToBase(targetValue: Double) {
+    private suspend fun convertTargetToBase(targetValue: String) {
         // Convert targetCurrency from USD to baseCurrency
         val baseCurrencyName = _baseCurrency.value?.keys?.first()
         val conversionRate = _rates.value?.rates?.get(baseCurrencyName)
 
         // Multiply targetValue (USD) by the conversion rate to get the base currency value
-        val baseValue = conversionRate?.let { targetValue * it } ?: 0.0
+        val baseValue = conversionRate?.let { targetValue.toDouble() * it } ?: 0.0
         baseCurrencyInput.value = baseValue.toString()
-        // update _baseCurrency value
-        _baseCurrency.value = mapOf((baseCurrencyName ?: "THE ERROR HERE!") to baseCurrencyInput.value.toDouble())
 
+        if (baseCurrencyInput.value == "0.0") {
+            baseCurrencyInput.value = "0"
+        }
+
+        // update _baseCurrency value
+        instantiateBaseCurrency(
+            name = baseCurrencyName ?: "THE ERROR HERE!",
+            value = baseCurrencyInput.value
+        )
         if (_baseCurrency.value?.keys?.first() != "THE ERROR HERE!") {
             withContext(Dispatchers.IO) {
-                saveCurrencyPairsToAppDataStore()
+                saveCurrencyPairsToAppDataStore() // save pair to dataStore
             }
-        } else {
-            Log.d("MY LOG", "There is an error on line 220")
         }
     }
 
 
-    private suspend fun convertNonUSDTargetToBase(targetValue: Double) {
+    private suspend fun convertNonUSDTargetToBase(targetValue: String) {
         // Convert targetCurrency to USD first, before converting to baseCurrency
         val targetCurrencyName = _targetCurrency.value?.keys?.first()
         val conversionRate = _rates.value?.rates?.get(targetCurrencyName)
 
-        val targetInUSD = conversionRate?.let { targetValue / it } ?: 0.0
-        convertTargetToBase(targetInUSD)
+        val targetInUSD = conversionRate?.let { targetValue.toDouble() / it } ?: 0.0
+        convertTargetToBase(targetInUSD.toString())
     }
 
 
@@ -253,11 +264,10 @@ class CurrencyConverterViewModel @Inject constructor(
             _rates.value = cachedRates
 
             if (_rates.value == null) {
-                Log.d("MY LOG", "Fetching data from api, because database was empty...")
                 fetchNewCurrencyRatesFromAPI()
             } else {
                 // if database data is valid
-                checkFirstOpenState()
+                checkFirstOpenStateAndUpdateUI()
             }
         }
     }
@@ -265,162 +275,152 @@ class CurrencyConverterViewModel @Inject constructor(
     /**
      * Fetches new currency rates from the internet and updates the local database.
      */
-    suspend fun fetchNewCurrencyRatesFromAPI() {
-        val newRates = repository.fetchRatesFromInternet(context)
-        _rates.value = newRates
+    private suspend fun fetchNewCurrencyRatesFromAPI() {
+        _isUpdating.value = true
+        try {
+            val newRates = repository.fetchRatesFromInternet(context)
+            _rates.value = newRates
 
-        if (_rates.value != null) {
-            repository.saveCurrencyRatesToAppDatabase(_rates.value!!) // update Database if api call is successful
-            checkFirstOpenState() // update ui if api call is successful
-            Log.d("MY LOG", "saved rates to database!")
+            if (_rates.value != null) {
+                repository.saveCurrencyRatesToAppDatabase(_rates.value!!) // Update database if API call is successful
+            }
+            checkFirstOpenStateAndUpdateUI() // Update UI if API call is successful
+
+        } finally {
+            _isUpdating.value = false
+        }
+    }
+
+    fun refreshCurrencyRates() {
+        viewModelScope.launch(Dispatchers.IO) {
+            fetchNewCurrencyRatesFromAPI()
         }
     }
 
 
-    private suspend fun checkFirstOpenState() {
+    private suspend fun checkFirstOpenStateAndUpdateUI() {
        var isFirstOpen by Delegates.notNull<Boolean>()
         withContext(Dispatchers.IO) {
             isFirstOpen = repository.retrieveFirstOpenState()
         }
 
-        if (isFirstOpen && _rates.value != null) {
-        // Handle first open logic
-            var baseCurrencyKey = ""
-            var baseCurrencyValue = 0.0
-            _rates.value?.rates?.keys?.forEach {
-                if (it == USD) {
-                    baseCurrencyKey = it
-                    baseCurrencyValue = _rates.value?.rates!![it]!!
+        if (_rates.value != null) {
+            if (isFirstOpen) {
+                // Handle first open logic
+                var baseCurrencyKey = ""
+                var baseCurrencyValue = "0"
+                _rates.value?.rates?.keys?.forEach {
+                    if (it == USD) {
+                        baseCurrencyKey = it
+                        baseCurrencyValue = _rates.value?.rates!![it]!!.toString()
+                    }
                 }
-            }
-            var targetCurrencyKey = ""
-            var targetCurrencyValue = 0.0
-            _rates.value?.rates?.keys?.forEach {
-                if (it == NGN) {
-                    targetCurrencyKey = it
-                    targetCurrencyValue = _rates.value?.rates!![it]!!
+                var targetCurrencyKey = ""
+                var targetCurrencyValue = "0"
+                _rates.value?.rates?.keys?.forEach {
+                    if (it == NGN) {
+                        targetCurrencyKey = it
+                        targetCurrencyValue = _rates.value?.rates!![it]!!.toString()
+                    }
                 }
-            }
-            _baseCurrency.value = mapOf(baseCurrencyKey to baseCurrencyValue)
-            _targetCurrency.value = mapOf(targetCurrencyKey to targetCurrencyValue)
-            _currencyRatesLastUpdated.value = _rates.value?.time_last_update_utc ?: ""
-            Log.d("MY LOG", "value of _rates is ${_rates.value}")
+                _baseCurrency.value = mapOf(baseCurrencyKey to baseCurrencyValue)
+                _targetCurrency.value = mapOf(targetCurrencyKey to targetCurrencyValue)
+                _currencyRatesLastUpdated.value = _rates.value?.time_last_update_utc ?: REFRESH
+                Log.d("MY LOG", "value of _rates is ${_rates.value}")
 
-            withContext(Dispatchers.IO) {
-                repository.saveFirstOpenState()
-                saveCurrencyPairsToAppDataStore()
+                withContext(Dispatchers.IO) {
+                    repository.saveFirstOpenState()
+                    saveCurrencyPairsToAppDataStore()
+                }
+            } else {
+                // Handle non-first open logic
+                withContext(Dispatchers.IO) {
+                    getCurrencyPairsFromAppDataStore()
+                }
             }
         } else {
-            withContext(Dispatchers.IO) {
-                getCurrencyPairsFromAppDataStore()
-            }
+            // Handle failure to load any data
+            _currencyRatesLastUpdated.value = REFRESH // update the ui with the refresh option
         }
     }
 
     private suspend fun getCurrencyPairsFromAppDataStore() {
-        if (_rates.value != null) {
-           val currencyPairs = repository.retrieveCurrencyPairsFromAppDataStore().first()
-           val retrievedBaseCurrencyFromDataStore = currencyPairs.first()
-           val retrievedTargetCurrencyFromDataStore = currencyPairs.last()
-            // update ui with saved currency pairs
-            _baseCurrency.value =
-                mapOf(retrievedBaseCurrencyFromDataStore.keys.first() to retrievedBaseCurrencyFromDataStore.values.first())
-            _targetCurrency.value =
-                mapOf(retrievedTargetCurrencyFromDataStore.keys.first() to retrievedTargetCurrencyFromDataStore.values.first())
-            _currencyRatesLastUpdated.value = _rates.value?.time_last_update_utc!!
-            Log.d("MY LOG", "YOUR VALUES ARE _baseCurrency: ${_baseCurrency.value} and _targetCurrency: ${_targetCurrency.value}")
-            Log.d(
-                "MY LOG",
-                "updateCurrencyPairsFromDataStore function has successfully COMPLETED"
-            )
-        }
+       val currencyPairs = repository.retrieveCurrencyPairsFromAppDataStore().first()
+       val retrievedBaseCurrencyFromDataStore = currencyPairs.first()
+       val retrievedTargetCurrencyFromDataStore = currencyPairs.last()
+        // update ui with saved currency pairs
+        instantiateBaseCurrency(
+            name = retrievedBaseCurrencyFromDataStore.keys.first(),
+            value = retrievedBaseCurrencyFromDataStore.values.first()
+        )
+        instantiateTargetCurrency(
+            name = retrievedTargetCurrencyFromDataStore.keys.first(),
+            value = retrievedTargetCurrencyFromDataStore.values.first()
+        )
+        _currencyRatesLastUpdated.value = _rates.value?.time_last_update_utc ?: REFRESH
     }
-//
-//    private fun updateUI(newCurrencyRates: CurrencyRates) {
-//        Log.d("NEW LOG", "value of firstOpenState is $firstOpenState")
-//        viewModelScope.launch(Dispatchers.IO) {
-//            _rates.value = newCurrencyRates
-//            if (!firstOpenState!!) {
-//                // handle app first open state
-//                Log.d("NEW LOG", "value of firstOpenState is $firstOpenState")
-//                var baseCurrencyKey = ""
-//                _rates.value?.rates?.keys?.forEach {
-//                    if (it == USD) {
-//                        baseCurrencyKey = it
-//                        baseCurrencyValue = _rates.value?.rates!![it]!!
-//                    }
-//                }
-//                var targetCurrencyKey = ""
-//                _rates.value?.rates?.keys?.forEach {
-//                    if (it == NGN) {
-//                        targetCurrencyKey = it
-//                        targetCurrencyValue = _rates.value?.rates!![it]!!
-//                    }
-//                }
-//                _baseCurrency.value = mapOf(baseCurrencyKey to baseCurrencyValue)
-//                _targetCurrency.value = mapOf(targetCurrencyKey to targetCurrencyValue)
-//                _currencyRatesLastUpdated.value = _rates.value?.time_last_update_utc!!
-//                repository.saveFirstOpenState()
-//                saveCurrencyPairsToAppDataStore()
-//            } else {
-//                // app has been open before so...
-//                getCurrencyPairsFromAppDataStore()
-//            }
-//        }
-//    }
-//
 
-    suspend fun handleNewTargetCurrencyName(newTargetCurrencyName: String) {
+    fun handleNewTargetCurrencyName(newTargetCurrencyName: String) {
         if (newTargetCurrencyName.isNotEmpty()) {
             val currency = newTargetCurrencyName.split(" ").last()
-            if (_targetCurrencySelected.value) {
-                // if target currency is selected, only it's name would change,
-                // the value remains the same.
-                // while we'll compute the new value of the base currency
-                val previousTargetCurrencyValue = _targetCurrency.value?.values?.first()
-                _targetCurrency.value = mapOf(currency to (previousTargetCurrencyValue!!))
-                performConversionForTargetCurrency()
-            } else {
-                // if the base currency is selected,
-                // the target currency name and value would change
-                val previousTargetCurrencyValue = _targetCurrency.value?.values?.first()
-                _targetCurrency.value = mapOf(currency to (previousTargetCurrencyValue!!))
-                performConversionForBaseCurrency()
+            val previousTargetCurrencyValue = _targetCurrency.value?.values?.first()
+            instantiateTargetCurrency(name = currency, value = previousTargetCurrencyValue ?: "0.0")
+            viewModelScope.launch {
+                if (targetCurrencySelected.value) {
+                    // if target currency is selected, only it's name would change,
+                    // the value remains the same.
+                    // while we'll compute the new value of the base currency
+                    performConversionForTargetCurrency()
+
+                } else {
+                    // if the base currency is selected,
+                    // the target currency name and value would change
+                    performConversionForBaseCurrency()
+                }
             }
-            Log.d("THE LOG", "In handleNewTargetCurrency, the function completed")
         }
     }
 
 
-    suspend fun handleNewBaseCurrencyName(newBaseCurrency: String) {
+    fun handleNewBaseCurrencyName(newBaseCurrency: String) {
         if (newBaseCurrency.isNotEmpty()) {
             val currency = newBaseCurrency.split(" ").last()
-            if (_baseCurrencySelected.value) {
-                val previousBaseCurrencyValue = _baseCurrency.value?.values?.first()
-                _baseCurrency.value = mapOf(currency to (previousBaseCurrencyValue ?: 0.0))
-                performConversionForBaseCurrency()
-            } else {
-                // if the _targetCurrency is selected
-                // target currency value and name would be retained, new base currency name would change
-                // and it's value recomputed
-                val previousBaseCurrencyValue = _baseCurrency.value?.values?.first()
-                _baseCurrency.value = mapOf(currency to (previousBaseCurrencyValue ?: 0.0))
-                performConversionForTargetCurrency()
+            val previousBaseCurrencyValue = _baseCurrency.value?.values?.first()
+            instantiateBaseCurrency(name = currency, value = previousBaseCurrencyValue ?: "0.0")
+            viewModelScope.launch {
+                if (baseCurrencySelected.value) {
+                    // if the base currency is selected,
+                    // only the base currency name would change
+                    // while we'll compute the value of the target currency
+                    performConversionForBaseCurrency()
+                } else {
+                    // if the target currency is selected,
+                    // target currency value and name would be retained, new base currency name would change
+                    // and it's value recomputed
+                    performConversionForTargetCurrency()
+                }
             }
-            // re-create the base currency with it's new name first
-            Log.d("THE LOG", "In handleNewBaseCurrency, the function completed")
+
         }
+    }
+
+    private fun instantiateBaseCurrency(name: String, value: String) {
+        _baseCurrency.value = mapOf(name to value)
+    }
+
+    private fun instantiateTargetCurrency(name: String, value: String) {
+        _targetCurrency.value = mapOf(name to value)
     }
 
     fun handleBaseCurrencySelected() {
-        if (_targetCurrencySelected.value) {
+        if (targetCurrencySelected.value) {
             _targetCurrencySelected.value = false
         }
         _baseCurrencySelected.value = true
     }
 
     fun handleTargetCurrencySelected() {
-        if (_baseCurrencySelected.value) {
+        if (baseCurrencySelected.value) {
             _baseCurrencySelected.value = false
         }
         _targetCurrencySelected.value = true
@@ -437,17 +437,5 @@ class CurrencyConverterViewModel @Inject constructor(
             Log.d("MY LOG", "SAVED TO DATA STORE COMPLETE")
         }
     }
-
-
-//
-//    private val _swapConversion = MutableStateFlow(false)
-//    private val swapConversion = _swapConversion
-
-//    private fun getRates(): Flow<CurrencyRates> {
-//        return repository.getRates().also {
-//            Log.d("MY LOG", "Rates fetched successfully: $it")
-//        }
-//
-//    }
 }
 

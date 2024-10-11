@@ -28,14 +28,14 @@ class DataStoreOperationsImpl(private val context: Context) : DataStoreOperation
         val FIRST_OPEN_STATE = booleanPreferencesKey("first_open_state")
     }
 
-    override suspend fun saveCurrencyPairs(currencyPairs: List<Map<String, Double>>) {
+    override suspend fun saveCurrencyPairs(currencyPairs: List<Map<String, String>>) {
         val jsonList = Json.encodeToString(currencyPairs)
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.CURRENCY_PAIRS] = jsonList
         }
     }
 
-    override fun retrieveCurrencyPairs(): Flow<List<Map<String, Double>>> {
+    override fun retrieveCurrencyPairs(): Flow<List<Map<String, String>>> {
        return dataStore.data
            .catch {
                if (it is IOException) {
@@ -48,7 +48,7 @@ class DataStoreOperationsImpl(private val context: Context) : DataStoreOperation
            .map { preferences ->
                // Retrieve the JSON string and convert it back to a list of maps
                preferences[PreferencesKeys.CURRENCY_PAIRS]?.let {
-                   Json.decodeFromString<List<Map<String, Double>>>(it)
+                   Json.decodeFromString<List<Map<String, String>>>(it)
                }!!
            }
     }

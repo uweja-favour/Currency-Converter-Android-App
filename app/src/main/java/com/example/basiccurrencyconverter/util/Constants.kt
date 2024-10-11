@@ -401,4 +401,6 @@ object Constants {
     const val CURRENCY_RATES = "currency_rates"
     const val NO_INTERNET = "No Internet"
     const val PREFERENCES_NAME = "currency_converter_datastore"
+    const val REFRESH = "Refresh"
+    const val NULL = "null"
 }

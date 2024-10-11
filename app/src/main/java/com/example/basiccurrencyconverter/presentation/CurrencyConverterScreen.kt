@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -31,8 +32,16 @@ import com.example.basiccurrencyconverter.ui.theme.TextColor
 import com.example.basiccurrencyconverter.util.Constants.allCurrencies
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+
+@Composable
+fun LoadingScreen() {
+    // Simple placeholder UI
+    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+        CircularProgressIndicator()
+    }
+}
 
 
 
@@ -44,6 +53,11 @@ fun CurrencyConverterMainScreen(
     viewModel: CurrencyConverterViewModel,
     coroutineScope: CoroutineScope
 ) {
+
+    LaunchedEffect(Unit) {
+        viewModel.initializeDataIfNeeded()
+    }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
@@ -85,25 +99,27 @@ private fun ScreenContents(
     val bottomSheetState = rememberBottomSheetScaffoldState()
     val currencyRatesLastUpdated by viewModel.currencyRatesLastUpdated.collectAsState()
     val wasBaseCurrencyExpandedToChangeItsName by viewModel.wasBaseCurrencyExpandedToChangeItsName.collectAsState()
-    var currencyRatesLastUpdatedText by remember { mutableStateOf("Last updated: $currencyRatesLastUpdated") }
+    val isUpdating by viewModel.isUpdating.collectAsState()
 
 
     BottomSheetScaffold(
         scaffoldState = bottomSheetState,
         sheetContent = {
-            CurrencyListContent(
-                navController = navController,
-                onClick = { theCurrencyClicked ->
-                    coroutineScope.launch {
-                        bottomSheetState.bottomSheetState.partialExpand()
+            if (bottomSheetState.bottomSheetState.hasExpandedState) {
+                CurrencyListContent(
+                    navController = navController,
+                    onClick = { theCurrencyClicked ->
+                        coroutineScope.launch {
+                            bottomSheetState.bottomSheetState.partialExpand()
+                        }
                         if (!wasBaseCurrencyExpandedToChangeItsName) {
                             viewModel.handleNewTargetCurrencyName(theCurrencyClicked)
                         } else {
                             viewModel.handleNewBaseCurrencyName(theCurrencyClicked)
                         }
                     }
-                }
-            )
+                )
+            }
         },
         sheetPeekHeight = 1.dp
     ) {
@@ -127,28 +143,32 @@ private fun ScreenContents(
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = currencyRatesLastUpdatedText,
-                        textAlign = TextAlign.Center
+                        text = if (isUpdating) "Updating..." else "Last updated: $currencyRatesLastUpdated"
                     )
                     Icon(
                         Icons.Default.Refresh,
                         contentDescription = "Refresh",
                         modifier = Modifier.clickable {
-                            coroutineScope.launch {
-                                viewModel.fetchNewCurrencyRatesFromAPI()
-                                currencyRatesLastUpdatedText = "Updating..."
-                                delay(1500) // Simulate a delay for fetching new rates
-                                currencyRatesLastUpdatedText = "Last updated: $currencyRatesLastUpdated"
-                            }
+                            viewModel.refreshCurrencyRates()
                         }
                     )
                 }
+            }
+            var includedDecimal by rememberSaveable {
+                mutableStateOf(false)
+            }
+            LaunchedEffect(
+                key1 = viewModel.baseCurrencySelected.collectAsState().value,
+                key2 = viewModel.targetCurrencySelected.collectAsState().value
+            ) {
+                includedDecimal = false
             }
 
             AnimatedVisibility(
                 visible = viewModel.baseCurrencySelected.collectAsState().value || viewModel.targetCurrencySelected.collectAsState().value
             ) {
                 val stringBuilder = StringBuilder("")
+
                 SecondNumericKeyboard {
                     when (it) {
                         "AC" -> {
@@ -161,7 +181,18 @@ private fun ScreenContents(
                             }
                         }
                         "." -> {
-                            if (stringBuilder.isNotBlank() && stringBuilder.last() != '.') {
+                            if (stringBuilder.isNotBlank() && !includedDecimal) {
+                                stringBuilder.append(it)
+                                includedDecimal = true
+                            }
+                        }
+                        "0" -> {
+                            if (stringBuilder.toString() != "0" && stringBuilder.isNotBlank()) {
+                                stringBuilder.append(it)
+                            }
+                        }
+                        "00" -> {
+                            if (stringBuilder.toString() != "0" && stringBuilder.isNotBlank()) {
                                 stringBuilder.append(it)
                             }
                         }
@@ -180,7 +211,7 @@ private fun ScreenContents(
 }
 
 
-fun updateCurrencyValue(
+private fun updateCurrencyValue(
     string: String,
     viewModel: CurrencyConverterViewModel
 ) {
@@ -210,33 +241,6 @@ fun CurrencyListContent(
         )
         Spacer(modifier = Modifier.padding(bottom = 10.dp))
 
-//                TextField(
-//                    singleLine = true,
-//                    leadingIcon = {
-//                        Row(modifier = Modifier.padding(start = 5.dp)) {
-//                            Icon(Icons.Default.Search, contentDescription = "Search Icon")
-//                            Text("Search")
-//                        }
-//                    },
-//                    value = text,
-//                    onValueChange = { text = it },
-//                    placeholder = { Text("Search") },
-//                    modifier = Modifier
-//                        .clickable {
-//                            navController.navigate(Screen.CurrencyConverterSearchScreen.route)
-//                        }
-//                        .fillMaxWidth(.8f)
-//                        .height(40.dp)
-//                        .padding(5.dp),
-//                    textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
-//                    shape = RoundedCornerShape(16.dp),
-//                    colors = TextFieldDefaults.textFieldColors(
-//                        focusedTextColor = Color.Black,
-//                        containerColor = MaterialTheme.colorScheme.surface,
-//                        focusedIndicatorColor = Color.Transparent,
-//                        unfocusedIndicatorColor = Color.Transparent
-//                    )
-//                )
         Row(
             modifier = Modifier
                 .fillMaxWidth(.8f),
@@ -279,9 +283,6 @@ fun CurrencyListContent(
                 .fillMaxWidth()
                 .padding(MEDIUM_PADDING),
         ) {
-            item {
-            }
-
             items(allCurrencies) { currency ->
                 Text(
                     modifier = Modifier.clickable { onClick(currency) },
@@ -311,8 +312,8 @@ fun CurrencyDisplaySection(
     val baseCurrencyDisplayName = viewModel.baseCurrency.collectAsState().value?.keys?.first() ?: "N/A"
     val targetCurrencyDisplayName = viewModel.targetCurrency.collectAsState().value?.keys?.first() ?: "N/A"
 
-    val baseCurrencyDisplayValue = viewModel.baseCurrency.collectAsState().value?.values?.first() ?: 100.5
-    val targetCurrencyDisplayValue = viewModel.targetCurrency.collectAsState().value?.values?.first() ?: 100.5
+    val baseCurrencyDisplayValue = viewModel.baseCurrency.collectAsState().value?.values?.first() ?: "100.5"
+    val targetCurrencyDisplayValue = viewModel.targetCurrency.collectAsState().value?.values?.first() ?: "100.5"
 
     val baseCurrencySelected = viewModel.baseCurrencySelected
     val targetCurrencySelected = viewModel.targetCurrencySelected
@@ -329,7 +330,9 @@ fun CurrencyDisplaySection(
         ) {
             HorizontalDisplayCard(
                 modifier = Modifier.clickable {
-                    viewModel.handleBaseCurrencySelected()
+                    coroutineScope.launch(Dispatchers.Main) {
+                        viewModel.handleBaseCurrencySelected()
+                    }
                 },
                 isSelected = baseCurrencySelected,
                 currencyName = baseCurrencyDisplayName,
@@ -345,7 +348,9 @@ fun CurrencyDisplaySection(
 
             HorizontalDisplayCard(
                 modifier = Modifier.clickable {
-                    viewModel.handleTargetCurrencySelected()
+                    coroutineScope.launch(Dispatchers.Main) {
+                        viewModel.handleTargetCurrencySelected()
+                    }
                 },
                 isSelected = targetCurrencySelected,
                 currencyName = targetCurrencyDisplayName,
@@ -362,9 +367,7 @@ fun CurrencyDisplaySection(
 
         VerticalDisplayCard(
             modifier = Modifier.clickable {
-                coroutineScope.launch {
-                    viewModel.fetchNewCurrencyRatesFromAPI()
-                }
+                viewModel.refreshCurrencyRates()
             },
             height = 191.dp
         )
@@ -383,19 +386,20 @@ fun SecondNumericKeyboard(
     )
 
     Column(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         keyboardKeys.forEach { row ->
             Row(
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 5.dp, horizontal = 5.dp)
+                    .padding(vertical = 15.dp, horizontal = 20.dp)
             ) {
                 row.forEach { key ->
                     Button(
                         onClick = { onKeyPress(key) },
-                        modifier = Modifier.size(90.dp),
+                        modifier = Modifier.size(70.dp),
                         shape = CircleShape,
                         colors = ButtonDefaults.buttonColors(MaterialTheme.colorScheme.onPrimary),
                         elevation = ButtonDefaults.buttonElevation(1.5.dp)
@@ -404,7 +408,7 @@ fun SecondNumericKeyboard(
                             text = key,
                             color = TextColor,
                             textAlign = TextAlign.Center,
-                            fontSize = MaterialTheme.typography.titleLarge.fontSize
+                            fontSize = MaterialTheme.typography.titleMedium.fontSize
                         )
                     }
                 }
